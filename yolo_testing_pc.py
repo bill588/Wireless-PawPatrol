@@ -1,13 +1,7 @@
-#!/usr/bin/env python3
-"""
-pc_server_yolo.py
-PC-side server: receives JPEG frames over imageZMQ, runs YOLOv8n inference,
-and replies with b"DETECTED" or b"OK".
-
-Usage:
+Power Shell Command:
   python pc_server_yolo.py --port 5555 --conf 0.5 --show 0 --classes animal
 
-Notes:
+Note:
 - Requires: ultralytics, opencv-python, imagezmq, pyzmq, numpy
 - If you have a CUDA GPU with PyTorch CUDA installed, YOLOv8 will use it.
 - The server runs headless by default (no windows). Use --show 1 to visualize.
