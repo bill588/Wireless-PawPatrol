@@ -1,13 +1,16 @@
-#Concept: RPI (client) captures frames from picamera, encodes them into JPEGs, and sends them to PC (server) through imageZMQ. Server replies with "OK" or "DETECTED"
-#Future Developments: PC (server) pings RPI (client) upon "DETECTION", RPI transmits packet to ESP32 via 433Mhz. 
+#!/usr/bin/env python3
+"""
+pi_client_sender.py
+Raspberry Pi client: captures frames from Picamera2, JPEG-encodes them, and sends to PC via imageZMQ.
+Prints server reply (b"DETECTED" or b"OK").
 
-#How to test concept only: python3 yolo_testing_rpi.py --server-ip <you server ip> --port 5555 --size 640x480 --quality 85. Must be ran inside venv with necessary modules.
-
-#CODE:
-import argparse
-import socket
-import argparse
-import socket
+Usage:
+  python3 pi_client_sender.py --server-ip 192.168.1.100 --port 5555 --size 640x480 --quality 85
+Notes:
+- Run inside your venv (Bookworm often restricts global pip). Install: python3 -m venv ~/venvs/cam && source ~/venvs/cam/bin/activate
+- Requires: python3-picamera2 (apt), imagezmq, pyzmq, opencv-python, numpy
+- Headless: no windows opened. Prints detections to stdout.
+"""
 import argparse
 import socket
 import time
@@ -56,7 +59,7 @@ def main():
     args = parse_args()
     w, h = map(int, args.size.lower().split("x"))
     size_wh = (w, h)
-  
+
     sender = imagezmq.ImageSender(connect_to=f"tcp://{args.server_ip}:{args.port}", REQ_REP=True)
     rpi_name = socket.gethostname()
     if not isinstance(rpi_name, str):
@@ -96,13 +99,13 @@ def main():
 
             # Handle server reply
             if reply == b"DETECTED":
-                print("[Pi] DETECTED")
+                print(f":[PI] Frame {counter}: DeTECTED")
             elif reply == b"OK":
+                if counter % 30 == 0:
                 # Print occasionally to show liveness
-                if counter % 60 == 0:
-                    print("[Pi] OK")
+                    print(f"[PI] Frame {counter}: OK")
             else:
-                print(f"[Pi] Unknown reply: {reply}")
+                print(f"[PI] Frame {counter}: Unknown reply: {reply}")
 
             counter += 1
 
@@ -119,9 +122,7 @@ def main():
             if picam2 is not None:
                 picam2.stop()
         except Exception:
-          pass
+            pass
 
 if __name__ == "__main__":
     main()
-
-
