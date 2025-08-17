@@ -1,17 +1,12 @@
-Power Shell Command:
-  python pc_server_yolo.py --port 5555 --conf 0.5 --show 0 --classes animal
+#Using it: python yolo_testing_pc.py --port 5555 --conf 0.5 --show 0 --classes animal
 
-Note:
-- Requires: ultralytics, opencv-python, imagezmq, pyzmq, numpy
-- If you have a CUDA GPU with PyTorch CUDA installed, YOLOv8 will use it.
-- The server runs headless by default (no windows). Use --show 1 to visualize.
-"""
 import argparse
 import time
 import cv2
 import numpy as np
 import imagezmq
 from ultralytics import YOLO
+import zmq  # for catching ZMQError
 
 # COCO class names used by YOLOv8 models
 COCO_CLASSES = [
@@ -48,7 +43,6 @@ def build_class_filter(arg: str):
         return set(range(len(COCO_CLASSES)))
     if arg == "animal":
         return set(ANIMAL_IDS)
-    # custom list by names
     names = [s.strip() for s in arg.split(",") if s.strip()]
     out = set()
     for n in names:
@@ -70,18 +64,19 @@ def main():
 
     print(f"[Server] Listening on tcp://*:{args.port}")
     print(f"[Server] Model: {args.model}. Alerting on classes: {[COCO_CLASSES[i] for i in sorted(classes_to_alert)]}")
-    if args.show:
-        print("[Server] Visualization enabled. Close the window to stop.")
 
     try:
         while True:
-            sender_name, jpg_buffer = image_hub.recv_jpg()
-            # Decode JPEG to image
-            frame = cv2.imdecode(np.frombuffer(jpg_buffer, dtype=np.uint8), cv2.IMREAD_COLOR)
+            try:
+                sender_name, jpg_buffer = image_hub.recv_jpg()
+            except zmq.error.ZMQError as e:
+                print(f"[Server] Waiting for client... ({e})")
+                time.sleep(1)
+                continue
 
-            # Run inference
+            frame = cv2.imdecode(np.frombuffer(jpg_buffer, dtype=np.uint8), cv2.IMREAD_COLOR)
             results = model.predict(frame, verbose=False, conf=args.conf)
-            det = results[0]  # single image
+            det = results[0]
 
             animal_found = False
             if det.boxes is not None and len(det.boxes) > 0:
@@ -91,25 +86,30 @@ def main():
                         animal_found = True
                         break
 
-            # Optionally annotate & show
+            # Reply & logging
+            if animal_found:
+                print(f"[Server] Frame {frame_count}: DETECTED animal!")
+                image_hub.send_reply(b"DETECTED")
+            else:
+                if frame_count % 30 == 0:  # log OK only every ~30 frames
+                    print(f"[Server] Frame {frame_count}: OK (no animal)")
+                image_hub.send_reply(b"OK")
+
             if args.show:
                 annotated = det.plot()
                 cv2.imshow("Server View (YOLO)", annotated)
-                # Non-blocking waitKey; press 'q' to quit
                 if cv2.waitKey(1) & 0xFF == ord('q'):
-                    image_hub.send_reply(b"OK")
                     break
 
-            # Reply to client
-            image_hub.send_reply(b"DETECTED" if animal_found else b"OK")
-
-            # Profiling
             frame_count += 1
+
+            # Optional FPS profiling
             if args.profile and frame_count % 30 == 0:
                 now = time.time()
                 fps = 30.0 / (now - last)
                 last = now
                 print(f"[Server] ~{fps:.2f} FPS over last 30 frames")
+
     finally:
         try:
             cv2.destroyAllWindows()
@@ -118,3 +118,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
