@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-pi_client_sender.py
 Raspberry Pi client: captures frames from Picamera2, JPEG-encodes them, and sends to PC via imageZMQ.
-Prints server reply (b"DETECTED" or b"OK").
+Prints server reply (b"DETECTED" or b"OK" or other things)
 
 Usage:
   python3 pi_client_sender.py --server-ip 192.168.1.100 --port 5555 --size 640x480 --quality 85
-Notes:
-- Run inside your venv (Bookworm often restricts global pip). Install: python3 -m venv ~/venvs/cam && source ~/venvs/cam/bin/activate
-- Requires: python3-picamera2 (apt), imagezmq, pyzmq, opencv-python, numpy
-- Headless: no windows opened. Prints detections to stdout.
 """
 import argparse
 import socket
@@ -126,3 +121,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
